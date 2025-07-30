@@ -19,3 +19,9 @@ Build
 docker build -t memproxy:0.1.0 .
 ```
 
+Push
+```
+docker tag memproxy:0.1.0 zorkinaa/memproxy:0.1.0
+docker push zorkinaa/memproxy:0.1.0
+```
+
