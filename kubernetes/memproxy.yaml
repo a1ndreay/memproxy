@@ -39,10 +39,15 @@ spec:
       - name: memproxy
         image: docker.io/zorkinaa/memproxy:0.1.0
         args:
-        - "--backend=memcached"
+        - "--backend=inmemory"
         - "--listen=8080"
-        - "--origin=origin-web-server:80"    # pod hostName
-        - "--cache-address=localhost:11211"  # shared localhost
+        - "--origin='http://localhost:80'"                  # origin [schema://]address:port
+        - "--cache-address=localhost:11211"               # cache address (prefer localhost)
+        - "--readiness-probe-addr='http://localhost:80'"  # origin readiness probe (httpGet) 
+        readinessProbe:                      # (mirror of the --readiness-probe-addr result)
+          httpGet:
+            path: "/readyz"
+            port: "8080"
         resources:
           limits:
             memory: 200Mi
@@ -58,5 +63,99 @@ spec:
             cpu: 100m
             memory: 200Mi
       terminationGracePeriodSeconds: 30
+---
+# some deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels: 
+    app: nginx
+spec: 
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: nginx-config-volume
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: nginx-config-volume
+          mountPath: /usr/share/nginx/html/www/doggy.html
+          subPath: doggy.html
+      volumes:
+      - name: nginx-config-volume
+        configMap:
+          name: nginx-config
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: default
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+    pid /var/run/nginx.pid;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        sendfile on;
+        keepalive_timeout 65;
+
+        server {
+            listen 80;
+            server_name localhost;
+
+            root /usr/share/nginx/html;
+            index index.html;
+
+            location /doggy {
+                try_files /www/doggy.html =404;
+            }
+
+            location / {
+                try_files $uri $uri/ /index.html;
+            }
+        }
+    }
+  doggy.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Hello to nginx web-server</title>
+    </head>
+    <body>
+        <p><img src="https://res.cloudinary.com/zorkinaa/image/upload/v1753959426/5215578860450608887_gkpzez.jpg" alt="A cute dog" class="image-align-left">This is some text that wraps around the image.</p>
+    </body>
+    <style>
+    image-align-left {
+      float: left;
+      margin-right: 10px;
+    }
+    </style>
+    </html>
+  
+  
 
 
