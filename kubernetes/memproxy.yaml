@@ -41,12 +41,22 @@ spec:
         args:
         - "--backend=memcached"
         - "--listen=8080"
-        - "--origin=origin-web-server:80" # pod hostName
+        - "--origin=origin-web-server:80"    # pod hostName
+        - "--cache-address=localhost:11211"  # shared localhost
         resources:
           limits:
             memory: 200Mi
           requests:
             cpu: 100m
+            memory: 100Mi
+      - name: memcached
+        image: memcached
+        resources:
+          limits:
+            memory: 400Mi
+          requests:
+            cpu: 100m
             memory: 200Mi
       terminationGracePeriodSeconds: 30
----
+
+

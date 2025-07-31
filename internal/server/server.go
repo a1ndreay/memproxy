@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/a1ndreay/memproxy/pkg/cache"
 	"github.com/go-chi/chi/v5"
@@ -12,25 +13,48 @@ import (
 
 // Server wraps router and backend.
 type Server struct {
-	router     *chi.Mux
-	backend    cache.Backend
-	originAddr string
+	router        *chi.Mux
+	backend       cache.Backend
+	originAddr    string
+	healthzAddr   string
+	periodSeconds int
+	healthy       bool
 }
 
 // New creates a new Server instance.
-func New(backend cache.Backend, originAddr string) *Server {
+func New(backend cache.Backend, originAddr string, readinessProbe string, periodSeconds int) *Server {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	srv := &Server{router: r, backend: backend, originAddr: originAddr}
+	srv := &Server{router: r, backend: backend, originAddr: originAddr, healthzAddr: readinessProbe, periodSeconds: periodSeconds, healthy: false}
 	r.Get("/{key}", srv.getHandler())
 	r.Post("/{key}", srv.setHandler())
 	r.Delete("/{key}", srv.deleteHandler())
+	r.Get("/readyz", srv.readyzHandler())
+	go srv.startReadinessProbe()
 	return srv
 }
 
 // ListenAndServe starts HTTP listener.
 func (s *Server) ListenAndServe(addr string) error {
 	return http.ListenAndServe(addr, s.router)
+}
+
+func (s *Server) startReadinessProbe() {
+	ticker := time.NewTicker(time.Duration(s.periodSeconds) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		resp, err := http.Get(s.healthzAddr)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			s.healthy = true
+		} else {
+			s.healthy = false
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+		<-ticker.C
+	}
 }
 
 func (s *Server) getHandler() http.HandlerFunc {
@@ -91,5 +115,17 @@ func (s *Server) deleteHandler() http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (s *Server) readyzHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.healthy {
+			w.WriteHeader(http.StatusBadGateway)
+			w.Write([]byte(fmt.Sprintf("%s readiness probe was failed", s.originAddr)))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
 	}
 }
