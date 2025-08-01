@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -49,6 +50,7 @@ func (s *Server) startReadinessProbe() {
 			s.healthy = true
 		} else {
 			s.healthy = false
+			log.Printf("Readiness probe failed: %s HTTP probe failed with statuscode: %d", s.healthzAddr, resp.StatusCode)
 		}
 		if resp != nil {
 			resp.Body.Close()

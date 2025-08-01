@@ -2,6 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
+  namespace: default
   name: memproxy
   labels:
     app: memproxy
@@ -16,6 +17,7 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
+  namespace: default
   name: memproxy
   labels:
     app: memproxy
@@ -37,17 +39,19 @@ spec:
         effect: NoSchedule
       containers:
       - name: memproxy
-        image: docker.io/zorkinaa/memproxy:0.1.0
+        image: docker.io/zorkinaa/memproxy:0.1.1
         args:
         - "--backend=inmemory"
-        - "--listen=8080"
-        - "--origin='http://localhost:80'"                  # origin [schema://]address:port
-        - "--cache-address=localhost:11211"               # cache address (prefer localhost)
-        - "--readiness-probe-addr='http://localhost:80'"  # origin readiness probe (httpGet) 
-        readinessProbe:                      # (mirror of the --readiness-probe-addr result)
+        - "--listen=:8080"
+        - "--origin='http://nginx-service.default:80'"                  # origin ([schema://]address.namespace:port)
+        - "--cache-address=localhost:11211"                             # cache address (prefer localhost)
+        - "--readiness-probe-addr='http://nginx-service.default:80'"    # origin readiness probe httpGet ([schema://]address.namespace:port)
+        readinessProbe:                                                 # (mirror of the --readiness-probe-addr result)
           httpGet:
             path: "/readyz"
-            port: "8080"
+            port: 8080
+        ports:
+        - containerPort: 8080
         resources:
           limits:
             memory: 200Mi
@@ -64,10 +68,26 @@ spec:
             memory: 200Mi
       terminationGracePeriodSeconds: 30
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+  - protocol: TCP
+    port: 80 
+    targetPort: 80
+  type: ClusterIP
+  internalTrafficPolicy: Local #
+---
 # some deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  namespace: default
   name: nginx-deployment
   labels: 
     app: nginx
@@ -102,8 +122,8 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nginx-config
   namespace: default
+  name: nginx-config
 data:
   nginx.conf: |
     user nginx;
