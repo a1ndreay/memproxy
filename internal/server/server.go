@@ -50,7 +50,7 @@ func (s *Server) startReadinessProbe() {
 			s.healthy = true
 		} else {
 			s.healthy = false
-			log.Printf("Readiness probe failed: %s HTTP probe failed with statuscode: %d", s.healthzAddr, resp.StatusCode)
+			log.Printf("Readiness probe failed: %s %s", s.healthzAddr, err.Error())
 		}
 		if resp != nil {
 			resp.Body.Close()

@@ -8,7 +8,7 @@ metadata:
     app: memproxy
 spec:
   ports:
-  - port: 80
+  - port: 8080
     name: web
   type: ClusterIP
   selector:
@@ -39,14 +39,14 @@ spec:
         effect: NoSchedule
       containers:
       - name: memproxy
-        image: docker.io/zorkinaa/memproxy:0.1.1
+        image: docker.io/zorkinaa/memproxy:0.1.4
         args:
         - "--backend=inmemory"
         - "--listen=:8080"
-        - "--origin='http://nginx-service.default:80'"                  # origin ([schema://]address.namespace:port)
-        - "--cache-address=localhost:11211"                             # cache address (prefer localhost)
-        - "--readiness-probe-addr='http://nginx-service.default:80'"    # origin readiness probe httpGet ([schema://]address.namespace:port)
-        readinessProbe:                                                 # (mirror of the --readiness-probe-addr result)
+        - "--origin=http://nginx-service.default:80"                  # origin ([schema://]address.namespace:port)
+        - "--cache-address=localhost:11211"                           # cache address (prefer localhost)
+        - "--readiness-probe-addr=http://nginx-service.default:80"    # origin readiness probe httpGet ([schema://]address.namespace:port)
+        readinessProbe:                                               # (mirror of the --readiness-probe-addr result)
           httpGet:
             path: "/readyz"
             port: 8080

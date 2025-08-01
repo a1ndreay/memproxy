@@ -36,7 +36,7 @@ docker run --rm --network my-network --name web-server -p 8081:80 -v .\index.htm
 ```
 3. Start memproxy
 ```
-docker run --rm --network my-network -p 8080:8080 --name memproxy memproxy:0.1.1 --backend=inmemory --origin='http://web-server:80' --readiness-probe-addr='http://web-server:80' 
+docker run --rm --network my-network -p 8080:8080 --name memproxy memproxy:0.1.4 --backend=inmemory --origin='http://web-server:80' --readiness-probe-addr='http://web-server:80' 
 ```
 
 ### Build
